@@ -1,21 +1,28 @@
-# Pico Z-Stack Zigbee Coordinator PoC
+# Pico Z-Stack Coordinator & BLE Bridge PoC
 
-A bare-metal C proof-of-concept demonstrating how to use a **Raspberry Pi Pico** as a USB Host to control a **Texas Instruments Z-Stack Zigbee Coordinator** (specifically the **Sonoff Zigbee 3.0 USB Dongle Plus-P**).
+A C-based proof-of-concept demonstrating how to use a **Raspberry Pi Pico W / Pico 2 W** as a USB Host to control a **Texas Instruments Z-Stack Zigbee Coordinator** (specifically the **Sonoff Zigbee 3.0 USB Dongle Plus-P**), and bridge those Zigbee events to a smartphone via **Bluetooth Low Energy (BLE)**.
 
-This project uses the Pico C/C++ SDK and TinyUSB to send raw Monitor and Test (MT) API commands directly to the CC2652P chip over a USB CDC connection. 
+This project uses the Pico C/C++ SDK, TinyUSB, FreeRTOS, and BTstack. It sends raw Monitor and Test (MT) API commands directly to the CC2652P chip over a USB CDC connection and exposes device state changes through a custom BLE GATT server.
 
 ## 🚀 Features
 
+* **Zigbee-to-BLE Bridge:** Automatically forwards Zigbee cluster state changes (such as a Door/Window sensor opening or closing) to a connected BLE client in real-time via GATT notifications.
+
+* **FreeRTOS Architecture:** Built on FreeRTOS using a cooperative task-driven design, utilizing the Pico SDK's `async_context` to safely multiplex TinyUSB host polling and the BTstack wireless background worker.
+
 * **USB Host CDC:** Utilizes TinyUSB in host mode to enumerate and communicate with the Sonoff Dongle.
+
 * **Network Management:** Formats a Zigbee network, registers application endpoints, and opens the network for pairing (Permit Join).
-* **Device Discovery:** Parses Link Quality Indicator (LQI) neighbor tables to discover newly paired devices.
-* **Active Interrogation:** Automatically requests the IEEE address and Device Name (Basic Cluster `0x0000`) of newly discovered nodes.
-* **ZCL Parsing:** Includes basic logic to parse Zigbee Cluster Library (ZCL) incoming messages, such as extracting plain-text names and reading the On/Off Cluster (`0x0006`) state for door/window sensors.
+
+* **Device Discovery & Active Interrogation:** Parses Link Quality Indicator (LQI) neighbor tables to discover newly paired devices, automatically requesting the IEEE address and Device Name (Basic Cluster `0x0000`).
+
+* **ZCL Parsing:** Includes logic to parse Zigbee Cluster Library (ZCL) incoming messages, such as extracting plain-text names and reading the On/Off Cluster (0x0006).
+
 * **Spam Prevention:** Maintains a `known_devices` list to prevent flooding the network with duplicate queries.
 
 ## 🛠 Hardware Requirements
 
-1. **Raspberry Pi Pico** (The `CMakeLists.txt` is currently targeting `pico2_w`, but can be modified for standard Picos).
+1. **Raspberry Pi Pico W or Pico 2 W:** (*Note: A standard Pico will not work, as the CYW43 wireless chip is strictly required for the BLE server*).
 2. **USB OTG Cable:** Micro-USB Male to USB-A Female adapter.
 3. **Zigbee Coordinator:** Sonoff Zigbee 3.0 USB Dongle Plus (Model "P" / CC2652P).
 4. **USB to TTL Serial Adapter:** For debugging and monitoring serial output from the Pico (optional but recommended).
@@ -35,6 +42,16 @@ This project uses the Pico C/C++ SDK and TinyUSB to send raw Monitor and Test (M
 3. Power the Pico using a **regulated** 5V supply.
     * 5V -> VBUS
     * GND -> GND
+
+## 📱 Testing the BLE Bridge (nRF Connect)
+Once the Pico is running and your Zigbee sensor is paired:
+
+1. **Download nRF Connect for Mobile** (iOS/Android).
+2. Open the app and scan for Bluetooth devices. Look for **"Pico-Zigbee"**.
+3. **Tap Connect.**
+4. Scroll down to the **Custom Service** (`0000FF00-0000-1000-8000-00805F9B34FB`).
+5. Tap the multiple downward arrows icon on the **Device Event Stream Characteristic** (`FF01`) to **Enable Notifications**.
+6. Trigger your Zigbee sensor (e.g., open the door magnet). You will instantly see the hex payload stream into the app representing the network address, cluster ID, and state!
 
 ## 💻 Building and Flashing the Project
 
@@ -65,3 +82,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - [Z-Stack Monitor and Test API](https://dev.ti.com/tirex/explore/node?isTheia=false&node=A__ACh9le-N7XEoxabGqQcHgQ__com.ti.SIMPLELINK_CC13XX_CC26XX_SDK__BSEc4rl__LATEST)
 - [TinyUSB](https://github.com/hathach/tinyusb)
 - [Pico examples usb host](https://github.com/raspberrypi/pico-examples/tree/master/usb/host)
+- [Pico examples FreeRTOS](https://github.com/raspberrypi/pico-examples/tree/master?tab=readme-ov-file#freertos)
+- [Pico examples BTstack](https://github.com/raspberrypi/pico-examples/tree/master/pico_w/bt/standalone)
+- [BTstack](https://github.com/bluekitchen/btstack)
+- [FreeRTOS](https://www.freertos.org/)
